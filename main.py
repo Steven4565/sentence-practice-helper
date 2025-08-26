@@ -7,7 +7,12 @@ from typing import List
 
 BASE_URL = "http://192.168.18.14:11434/v1"
 llm = openai.OpenAI(base_url=BASE_URL, api_key="dummy")
-okt = Okt()
+
+
+@st.cache_resource
+def get_okt():
+    return Okt()
+okt = get_okt()
 
 def stream_prompt(prompt: str):
     done_thinking = False

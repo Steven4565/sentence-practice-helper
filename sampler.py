@@ -1,7 +1,8 @@
 import random
-import pandas as pd
 from anki.collection import Collection
 from typing import List
+import streamlit as st
+
 
 class WordSampler:
     dict_paths = {
@@ -9,12 +10,19 @@ class WordSampler:
         "korean": "/home/steven/.local/share/Anki2/User 1/collection.anki2"
     }
 
+    @staticmethod
+    @st.cache_resource
+    def get_collection(path: str): 
+        col = Collection(path)
+        return col
+
+
     def __init__(self, language: str):
         self.language = language.lower()
         if self.language not in self.dict_paths:
             raise ValueError(f"Language '{language}' not supported. Available: {list(self.dict_paths.keys())}")
 
-        self.col = Collection(self.dict_paths[self.language])
+        self.col = self.get_collection(self.dict_paths[self.language])
         ids = self.col.find_cards("introduced:2")
         new_words = []
         for id in ids: 
