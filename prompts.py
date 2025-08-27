@@ -4,7 +4,7 @@ class Prompts:
         self.samples = samples
 
 
-    def get_answer_prompt(self, question, answer): 
+    def get_analysis_prompt(self, question, answer): 
         answer_prompt = f"""
 /no_think
 You are a professional language learning assistant. Your task is to check the following {self.language} translation. Here are the criterias that you need to assess: 
@@ -27,13 +27,13 @@ Analysis Rules:
 {answer}
 
 # Analysis format 
-### 1. Do they have the same meaning?
+#### 1. Do they have the same meaning?
 {{Write your reasoning here}}
-**Verdict: **
+Verdict: 
 
-### 2. Is the sentence grammatically correct? 
+#### 2. Is the sentence grammatically correct? 
 {{Write your reasoning here}}
-**Verdict: **
+Verdict: 
 .
 .
 .
@@ -43,7 +43,7 @@ Respond with EXACTLY one word on this line: Correct or Incorrect.
 """
         return answer_prompt
 
-    def get_question_prompt(self): 
+    def get_target_sentence(self): 
         question_prompt = f"""
 /no_think
 You are a native {self.language} assistant. Your task is to create a single natural sounding {self.language} sentence that might be encountered in daily life. You MUST use the following word/topic to create the sentence: "{self.samples}". 

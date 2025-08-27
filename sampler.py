@@ -1,15 +1,10 @@
 import random
 from anki.collection import Collection
-from typing import List
+from typing import Dict, List
 import streamlit as st
 
 
 class WordSampler:
-    dict_paths = {
-        "indonesian": "~/Downloads/Indonesian_Vocabulary_beginner_to_intermediate_/collection.anki2",
-        "korean": "/home/steven/.local/share/Anki2/User 1/collection.anki2"
-    }
-
     @staticmethod
     @st.cache_resource
     def get_collection(path: str): 
@@ -17,8 +12,9 @@ class WordSampler:
         return col
 
 
-    def __init__(self, language: str):
+    def __init__(self, language: str, dict_paths: Dict[str, str]):
         self.language = language.lower()
+        self.dict_paths = dict_paths
         if self.language not in self.dict_paths:
             raise ValueError(f"Language '{language}' not supported. Available: {list(self.dict_paths.keys())}")
 
@@ -49,7 +45,7 @@ class WordSampler:
             cards = self.col.find_cards("Vocab:" + voc)
             if (not cards): 
                 # Not in anki dictionary
-                new_dict[voc] = "Vocab not found"
+                new_dict[voc] = "Vocab not found in Anki collection"
                 continue
 
             card = self.col.get_card(cards[-1])

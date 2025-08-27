@@ -4,9 +4,18 @@ from sampler import WordSampler
 from prompts import Prompts
 from konlpy.tag import Okt
 from typing import List
+import os
+from dotenv import load_dotenv
 
-BASE_URL = "http://192.168.18.14:11434/v1"
-llm = openai.OpenAI(base_url=BASE_URL, api_key="dummy")
+load_dotenv()
+
+server_url = os.getenv("SERVER_URL")
+dict_paths = {
+    "indonesian": "~/Downloads/Indonesian_Vocabulary_beginner_to_intermediate_/collection.anki2",
+    "korean": os.getenv("ANKI_PATH")
+}
+
+llm = openai.OpenAI(base_url=server_url, api_key="dummy")
 
 
 @st.cache_resource
@@ -55,8 +64,12 @@ def split_sentence(sentence: str):
     return vocabs
 
 # -------- App Init --------
+
+def main(): 
+    pass
+
 language = "Korean"
-sampler = WordSampler("Korean")
+sampler = WordSampler("Korean", dict_paths)
 samples = ", ".join(sampler.get_samples(1)).lower()
 
 prompts = Prompts(language, samples)
@@ -67,34 +80,41 @@ st.markdown("**Target topic:**")
 st.write(samples)
 
 st.markdown("**Literal Translation:**")
-# Session state
-if "question" not in st.session_state:
-    st.session_state.question = non_stream_prompt(prompts.get_question_prompt())
-    print(st.session_state.question)
 
+if "target_sent" not in st.session_state:
+    # Generate target language
+    with st.spinner("Generating sentence..."):
+        st.session_state.target_sent = non_stream_prompt(prompts.get_target_sentence())
+        print(st.session_state.target_sent)
+
+    # Generate literal English translation
     st.session_state.sent_eng = st.write_stream(
-        stream_prompt(prompts.get_english_translation(st.session_state.question)) # type: ignore
+        stream_prompt(prompts.get_english_translation(st.session_state.target_sent)) # type: ignore
     )
 
-    new_dict = sampler.get_unknown_vocab(split_sentence(st.session_state.question)) # type: ignore
-    st.markdown("**Hints**")
+    # Print hints
+    new_dict = sampler.get_unknown_vocab(split_sentence(st.session_state.target_sent)) # type: ignore
+    if (new_dict.keys()):
+        st.markdown("**Hints**")
     for key in new_dict.keys():
         st.write("* " + key + ": " + new_dict[key])
 else: 
     st.write(st.session_state.sent_eng)
-if "answer_result" not in st.session_state:
-    st.session_state.answer_result = ""
+if "analysis_result" not in st.session_state:
+    st.session_state.analysis_result = ""
 if "user_answer" not in st.session_state:
     st.session_state.user_answer = ""
 
 
-with st.form("answer_form"):
-    user_answer = st.text_input(
-        f"Type {language} translation:",
-        value=st.session_state.user_answer,
-        placeholder=f"Type the {language} translation here and press Enter",
-    )
-    submitted = st.form_submit_button("Send")
+if (not st.session_state.submitted):
+    with st.form("answer_form"):
+        user_answer = st.text_input(
+            f"Type {language} translation:",
+            value=st.session_state.user_answer,
+            placeholder=f"Type the {language} translation here and press Enter",
+        )
+        submitted = st.form_submit_button("Send")
+        st.session_state.submitted = True
 
 answer_key_heading = st.empty()
 answer_key = st.empty()
@@ -104,15 +124,15 @@ if submitted and user_answer.strip():
     with answer_key_heading.container():
         st.markdown("**Answer Key**")
     with answer_key.container():
-        st.write(st.session_state.question)
+        st.write(st.session_state.target_sent)
     with out.container():
         st.markdown("**Result**")
         full = st.write_stream(
-            stream_prompt(prompts.get_answer_prompt(st.session_state.question, user_answer.strip()))
+            stream_prompt(prompts.get_analysis_prompt(st.session_state.sent_eng, user_answer.strip()))
         )
-    st.session_state.answer_result = full
+    st.session_state.analysis_result = full
 
-if st.session_state.answer_result and not (submitted and user_answer.strip()):
+if st.session_state.analysis_result and not (submitted and user_answer.strip()):
     with out.container():
         st.markdown("**Result**")
-        st.write(st.session_state.answer_result)
+        st.write(st.session_state.analysis_result)
