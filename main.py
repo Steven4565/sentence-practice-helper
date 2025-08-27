@@ -63,76 +63,107 @@ def split_sentence(sentence: str):
     vocabs: List[str] = [word for word, tag in morphs if tag in valid_pos]
     return vocabs
 
-# -------- App Init --------
+def generate_sample_topic(sampler):
+    if not st.session_state.samples:
+        samples = ", ".join(sampler.get_samples(1)).lower()
+        st.session_state.samples = samples
 
-def main(): 
-    pass
+def init_state():
+    ss = st.session_state
+    ss.setdefault("sent_target", "")
+    ss.setdefault("sample", "")
+    ss.setdefault("sent_eng", "")
+    ss.setdefault("analysis_result", "")
+    ss.setdefault("user_answer", "")
+    ss.setdefault("submitted", False)
+    ss.setdefault("samples", "")
 
-language = "Korean"
-sampler = WordSampler("Korean", dict_paths)
-samples = ", ".join(sampler.get_samples(1)).lower()
+# ------- UI ---------
 
-prompts = Prompts(language, samples)
+def write_topic(): 
+    st.markdown("**Target topic:**")
+    st.write(st.session_state.samples)
 
-st.title("Translation Checker")
+def write_question(sampler): 
+    st.markdown("**Literal Translation:**")
+    q_container = st.empty()
 
-st.markdown("**Target topic:**")
-st.write(samples)
+    if not st.session_state.sent_target:
+        # Generate target language
+        with st.spinner("Generating sentence..."):
+            st.session_state.sent_target = non_stream_prompt(prompts.get_target_sentence())
+            print(st.session_state.sent_target)
 
-st.markdown("**Literal Translation:**")
+        # Generate literal English translation
+        with q_container.container():
+            st.session_state.sent_eng = st.write_stream(
+                stream_prompt(prompts.get_english_translation(st.session_state.sent_target)) # type: ignore
+            )
 
-if "target_sent" not in st.session_state:
-    # Generate target language
-    with st.spinner("Generating sentence..."):
-        st.session_state.target_sent = non_stream_prompt(prompts.get_target_sentence())
-        print(st.session_state.target_sent)
+        # Print hints
+        new_dict = sampler.get_unknown_vocab(split_sentence(st.session_state.sent_target)) # type: ignore
+        if (new_dict.keys()):
+            st.markdown("**Hints**")
+        for key in new_dict.keys():
+            st.write("* " + key + ": " + new_dict[key])
+    else: 
+        st.write(st.session_state.sent_eng)
 
-    # Generate literal English translation
-    st.session_state.sent_eng = st.write_stream(
-        stream_prompt(prompts.get_english_translation(st.session_state.target_sent)) # type: ignore
-    )
+    return q_container
 
-    # Print hints
-    new_dict = sampler.get_unknown_vocab(split_sentence(st.session_state.target_sent)) # type: ignore
-    if (new_dict.keys()):
-        st.markdown("**Hints**")
-    for key in new_dict.keys():
-        st.write("* " + key + ": " + new_dict[key])
-else: 
-    st.write(st.session_state.sent_eng)
-if "analysis_result" not in st.session_state:
-    st.session_state.analysis_result = ""
-if "user_answer" not in st.session_state:
-    st.session_state.user_answer = ""
-
-
-if (not st.session_state.submitted):
-    with st.form("answer_form"):
-        user_answer = st.text_input(
-            f"Type {language} translation:",
-            value=st.session_state.user_answer,
-            placeholder=f"Type the {language} translation here and press Enter",
-        )
-        submitted = st.form_submit_button("Send")
+def write_input_box(container):
+    def handle_user_answer():
         st.session_state.submitted = True
 
-answer_key_heading = st.empty()
-answer_key = st.empty()
-out = st.empty()
+    def handle_regenerate_button():
+        with container.container():
+            st.session_state.sent_eng = st.write_stream(
+                stream_prompt(prompts.get_english_translation(st.session_state.sent_target)) # type: ignore
+            )
 
-if submitted and user_answer.strip():
-    with answer_key_heading.container():
+
+    cols = st.columns(2)
+    with cols[0]: 
+        st.text_input(
+            f"Type {language} translation:",
+            label_visibility="collapsed",
+            value=st.session_state.user_answer,
+            placeholder=f"Type the {language} translation here and press Enter",
+            key="user_answer",
+            on_change=handle_user_answer
+        )
+    with cols[1]: 
+        st.button(
+            "Regenerate question",
+            on_click=handle_regenerate_button
+        )
+
+def write_analysis(): 
+    if st.session_state.submitted and st.session_state.user_answer.strip():
         st.markdown("**Answer Key**")
-    with answer_key.container():
-        st.write(st.session_state.target_sent)
-    with out.container():
+        st.write(st.session_state.sent_target)
         st.markdown("**Result**")
         full = st.write_stream(
-            stream_prompt(prompts.get_analysis_prompt(st.session_state.sent_eng, user_answer.strip()))
+            stream_prompt(prompts.get_analysis_prompt(st.session_state.sent_eng, st.session_state.user_answer.strip()))
         )
-    st.session_state.analysis_result = full
+        full = "full analysis"
+        st.write(full)
+        st.session_state.analysis_result = full
 
-if st.session_state.analysis_result and not (submitted and user_answer.strip()):
-    with out.container():
-        st.markdown("**Result**")
-        st.write(st.session_state.analysis_result)
+
+# -------- App --------
+
+language = "Korean"
+sampler = WordSampler(language, dict_paths)
+
+init_state()
+generate_sample_topic(sampler)
+
+prompts = Prompts(language, st.session_state.samples)
+
+st.title("Translation Checker")
+write_topic()
+q_container = write_question(sampler)
+write_input_box(q_container)
+st.divider()
+write_analysis()
