@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 server_url = os.getenv("SERVER_URL")
+model_name = os.getenv("MODEL_NAME") or "hf.co/Qwen/Qwen3-8B-GGUF:Q5_K_M"
 dict_paths = {
     "indonesian": "~/Downloads/Indonesian_Vocabulary_beginner_to_intermediate_/collection.anki2",
     "korean": os.getenv("ANKI_PATH")
@@ -26,7 +27,7 @@ okt = get_okt()
 def stream_prompt(prompt: str):
     done_thinking = False
     stream = llm.chat.completions.create(
-        model="hf.co/Qwen/Qwen3-8B-GGUF:Q8_0",
+        model=model_name,
         stream=True,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
@@ -42,12 +43,13 @@ def stream_prompt(prompt: str):
 
 def non_stream_prompt(prompt: str): 
     text = llm.chat.completions.create(
-        model="hf.co/Qwen/Qwen3-8B-GGUF:Q8_0",
+        model=model_name,
         stream=False,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
         max_tokens=2048,
-    ).choices[0].message.content
+    )
+    text = text.choices[0].message.content
 
     if (not text): 
         raise ValueError("LLM did not generate text")
@@ -77,6 +79,7 @@ def init_state():
     ss.setdefault("user_answer", "")
     ss.setdefault("submitted", False)
     ss.setdefault("samples", "")
+    ss.setdefault("vocab_dict", {})
 
 # ------- UI ---------
 
@@ -90,6 +93,7 @@ def write_question(sampler):
 
     if not st.session_state.sent_target:
         # Generate target language
+        stream_prompt("/no_think create a random english sentence")
         with st.spinner("Generating sentence..."):
             st.session_state.sent_target = non_stream_prompt(prompts.get_target_sentence())
             print(st.session_state.sent_target)
@@ -107,7 +111,12 @@ def write_question(sampler):
         for key in new_dict.keys():
             st.write("* " + key + ": " + new_dict[key])
     else: 
+        vocab_dict = st.session_state.vocab_dict
         st.write(st.session_state.sent_eng)
+        if (vocab_dict):
+            st.markdown("**Hints**")
+            for key in vocab_dict.keys():
+                st.write("* " + key + ": " + vocab_dict.new_dict[key])
 
     return q_container
 

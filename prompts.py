@@ -62,13 +62,13 @@ Answer in the following format (just plain sentence, no outer quotes):
     def get_english_translation(self, target_sentence): 
         prompt = f"""
 /no_think
-You are a native English assistant that's also proficient in {self.language}. Your task is to create an English literal translation version of the given {self.language} sentence. The English sentence should capture all thes nuance of the original sentence. If the English sentence can't capture the nuance in a sensical sentence, put the nuance inside of parenthesis. The nuance should be direct and clear.
+You are a native English assistant that's also proficient in {self.language}. Your task is to create an English literal translation version of the given {self.language} sentence. The English sentence should capture all thes nuance of the original sentence. 
 
 Sentence: 
 {target_sentence}
 
 Answer in the following format (just plain sentence, no outer quotes): 
-{{sentence}} ({{optional nuance information}})
+{{sentence}}
 """
         return prompt
 
